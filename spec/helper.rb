@@ -33,7 +33,21 @@ ActiveRecord::Base.establish_connection config[db_adapter]
 ActiveRecord::Base.logger = Delayed::Worker.logger
 ActiveRecord::Migration.verbose = false
 
-require "generators/delayed_job/templates/migration"
+migration_template = File.open('generators/delayed_job/templates/migration')
+
+# need to eval the template with the migration_version intact
+template_context = Object.new
+template_context.instance_eval <<-EVAL
+  private def migration_version
+    if Rails::VERSION::MAJOR >= 5
+      "[#{Rails::VERSION::MAJOR}.#{Rails::VERSION::MINOR}]"
+    end
+  end
+EVAL
+
+migration_ruby = ERB.new(migration_template.read).result(template_context)
+eval(migration_ruby)
+
 ActiveRecord::Schema.define do
   CreateDelayedJobs.up
 
